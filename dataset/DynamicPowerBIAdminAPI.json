@@ -1,0 +1,25 @@
+{
+	"name": "DynamicPowerBIAdminAPI",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "PowerBIAPI",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"path": {
+				"type": "string",
+				"defaultValue": "groups/"
+			}
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@{concat(\n    'admin/',\n    dataset().path\n)}",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

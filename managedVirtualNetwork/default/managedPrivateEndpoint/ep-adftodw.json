@@ -1,0 +1,10 @@
+{
+	"name": "ep-adftodw",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/23d8ed9d-8cc6-4a39-a99b-109a5067ab06/resourceGroups/rg-voluebi-prod/providers/Microsoft.Sql/servers/sql-voluebi-prod",
+		"groupId": "sqlServer",
+		"fqdns": [
+			"sql-voluebi-prod.database.windows.net"
+		]
+	}
+}

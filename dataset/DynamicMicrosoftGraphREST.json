@@ -1,0 +1,25 @@
+{
+	"name": "DynamicMicrosoftGraphREST",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "GraphAPI",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"path": {
+				"type": "string",
+				"defaultValue": "users/"
+			}
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@dataset().path",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

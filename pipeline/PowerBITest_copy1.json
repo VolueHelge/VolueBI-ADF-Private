@@ -1,0 +1,78 @@
+{
+	"name": "PowerBITest_copy1",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEachDay",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@range(1,pipeline().parameters.DaysToExtract)",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Copy Activity Events",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "RestSource",
+									"httpRequestTimeout": "00:01:40",
+									"requestInterval": "00.00:00:00.010",
+									"requestMethod": "GET",
+									"paginationRules": {
+										"AbsoluteUrl": "$.continuationUri"
+									}
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate",
+									"disableMetricsCollection": false
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "DynamicPowerBIAdminAPI",
+									"type": "DatasetReference",
+									"parameters": {
+										"path": "activityevents?startDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T00:00:00.000Z'&endDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T23:59:59.999Z'"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DWtable",
+									"type": "DatasetReference"
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"DaysToExtract": {
+				"type": "int",
+				"defaultValue": 1
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-06-24T14:36:26Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,146 @@
+{
+	"name": "CopyWithLogin",
+	"properties": {
+		"activities": [
+			{
+				"name": "GetDWAutomationClientSecret",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat(\npipeline().globalParameters.KeyvaultURL,\n'AutomationClientSecret',\npipeline().globalParameters.KeyVaultAPIVersion)",
+						"type": "Expression"
+					},
+					"method": "GET",
+					"authentication": {
+						"type": "MSI",
+						"resource": "https://vault.azure.net"
+					}
+				}
+			},
+			{
+				"name": "Login",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "GetDWAutomationClientSecret",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.00:05:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": {
+						"value": "@concat(\n'https://login.microsoftonline.com/'\n,pipeline().globalParameters.VolueTenantId\n,'/oauth2/v2.0/token')",
+						"type": "Expression"
+					},
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/x-www-form-urlencoded"
+					},
+					"body": {
+						"value": "@concat(\n'client_id=',\npipeline().globalParameters.AutomationClientId,\n'&grant_type=client_credentials',\n'&scope=https://graph.microsoft.com/.default',\n'&client_secret=',\nactivity('GetDWAutomationClientSecret').output.value)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "CopyData",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Login",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "RestSource",
+						"httpRequestTimeout": "00:01:40",
+						"requestInterval": "00.00:00:00.010",
+						"requestMethod": "GET",
+						"additionalHeaders": {
+							"Authorization": {
+								"value": "@{if(\n    empty(string(pipeline().parameters.Token)),\n    concat('Bearer ',string(activity('Login').output.access_token)),\n    concat('Bearer ', pipeline().parameters.Token\n    )\n)}",
+								"type": "Expression"
+							},
+							"ConsistencyLevel": "eventual"
+						},
+						"paginationRules": {
+							"AbsoluteUrl": "$['@odata.nextLink']"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "DynamicMicrosoftGraphREST",
+						"type": "DatasetReference",
+						"parameters": {
+							"path": "users/"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "StorageCsv",
+						"type": "DatasetReference",
+						"parameters": {
+							"filename": "test.csv"
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"Token": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Azure AD"
+		},
+		"annotations": [
+			"Graph"
+		],
+		"lastPublishTime": "2022-06-24T12:33:01Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

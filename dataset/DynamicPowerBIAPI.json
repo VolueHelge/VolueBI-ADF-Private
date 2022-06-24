@@ -1,0 +1,25 @@
+{
+	"name": "DynamicPowerBIAPI",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "PowerBIAPI",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"path": {
+				"type": "string",
+				"defaultValue": "groups/"
+			}
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@{dataset().path}",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

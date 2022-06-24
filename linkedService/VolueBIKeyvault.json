@@ -1,0 +1,11 @@
+{
+	"name": "VolueBIKeyvault",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://keyv-voluebi-prod.vault.azure.net/"
+		}
+	}
+}

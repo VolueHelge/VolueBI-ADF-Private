@@ -1,0 +1,25 @@
+{
+	"name": "GraphAPI",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "https://graph.microsoft.com/v1.0/",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "AadServicePrincipal",
+			"servicePrincipalId": "231e2adf-b50a-4e74-a093-e54c5f549efd",
+			"servicePrincipalKey": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "VolueBIKeyvault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "AutomationClientSecret"
+			},
+			"tenant": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34",
+			"aadResourceId": "https://graph.microsoft.com",
+			"azureCloudType": "AzurePublic"
+		}
+	}
+}

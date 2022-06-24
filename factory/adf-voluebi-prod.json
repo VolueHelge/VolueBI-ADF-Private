@@ -1,0 +1,29 @@
+{
+	"name": "adf-voluebi-prod",
+	"properties": {
+		"globalParameters": {
+			"VolueTenantId": {
+				"type": "string",
+				"value": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+			},
+			"AutomationClientId": {
+				"type": "string",
+				"value": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+			},
+			"KeyvaultURL": {
+				"type": "string",
+				"value": "https://keyv-voluebi-prod.vault.azure.net/secrets/"
+			},
+			"KeyVaultAPIVersion": {
+				"type": "string",
+				"value": "?api-version=7.3"
+			}
+		}
+	},
+	"location": "northeurope",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "1de31212-4227-47a8-8ae7-73fbe298caad",
+		"tenantId": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+	}
+}

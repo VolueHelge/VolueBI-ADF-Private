@@ -1,0 +1,80 @@
+{
+	"name": "TestCopyGraph",
+	"properties": {
+		"activities": [
+			{
+				"name": "CopyData",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "RestSource",
+						"httpRequestTimeout": "00:01:40",
+						"requestInterval": "00.00:00:00.010",
+						"requestMethod": "GET",
+						"additionalHeaders": {
+							"Authorization": {
+								"value": "@{concat(\n    'Bearer ',\n    pipeline().parameters.Token\n)}",
+								"type": "Expression"
+							},
+							"ConsistencyLevel": "eventual"
+						},
+						"paginationRules": {
+							"AbsoluteUrl": "$['@odata.nextLink']"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "DynamicMicrosoftGraphREST",
+						"type": "DatasetReference",
+						"parameters": {
+							"path": "users/"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "StorageCsv",
+						"type": "DatasetReference",
+						"parameters": {
+							"filename": "test.csv"
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"Token": {
+				"type": "string",
+				"defaultValue": "eyJ0eXAiOiJKV1QiLCJub25jZSI6IjJuSmxianpKSXRvNDlEX3V3dzhoa0ZuUFhlZUoyWTdudVppVVJmY3NQWU0iLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGxWMFRPSSIsImtpZCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGxWMFRPSSJ9.eyJhdWQiOiIwMDAwMDAwMy0wMDAwLTAwMDAtYzAwMC0wMDAwMDAwMDAwMDAiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC85Y2U3NmQ0Mi01ZWNiLTRkOGYtOTM5Yi1hNDYyYWQyOGNmMzQvIiwiaWF0IjoxNjU2MDY4NDA5LCJuYmYiOjE2NTYwNjg0MDksImV4cCI6MTY1NjA3Mjc3OCwiYWNjdCI6MCwiYWNyIjoiMSIsImFpbyI6IkFWUUFxLzhUQUFBQUQ2eXd6Z0RMVFFqRnozRXlsQ0RoNmRPRlJwYlA0WnZNc0FnMTNGS3dWOHRlUUYyNHE1anY3NnJhZXlTWXo0c1AraGtUYzBFVkw2anBJVXJOZzFpMm1VbUZzdDY5NUJ3eGZnU08zcks4ZWlFPSIsImFtciI6WyJwd2QiLCJtZmEiXSwiYXBwX2Rpc3BsYXluYW1lIjoiR3JhcGggRXhwbG9yZXIiLCJhcHBpZCI6ImRlOGJjOGI1LWQ5ZjktNDhiMS1hOGFkLWI3NDhkYTcyNTA2NCIsImFwcGlkYWNyIjoiMCIsImZhbWlseV9uYW1lIjoiU2Nocm9lZGVyIiwiZ2l2ZW5fbmFtZSI6IkhlbGdlIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiODQuNTIuMTk5LjEwOCIsIm5hbWUiOiJIZWxnZSBTY2hyb2VkZXIiLCJvaWQiOiJkY2NlMjU3Zi01MzBjLTRjZmItOWQ2MC0xMzliMjk5MTUyNGIiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMzk0MDU4OTc1OC05MzMxMzU3OC0zMTY5MzE0MjQ1LTc4MzYiLCJwbGF0ZiI6IjMiLCJwdWlkIjoiMTAwMzIwMDFGOTdBNDZEQSIsInJoIjoiMC5BVGtBUW0zbm5NdGVqMDJUbTZSaXJTalBOQU1BQUFBQUFBQUF3QUFBQUFBQUFBQTVBRmMuIiwic2NwIjoiQ2FsZW5kYXJzLlJlYWRXcml0ZSBDaGF0LlJlYWQgQ2hhdC5SZWFkQmFzaWMgQ29udGFjdHMuUmVhZFdyaXRlIERldmljZU1hbmFnZW1lbnRSQkFDLlJlYWQuQWxsIERldmljZU1hbmFnZW1lbnRTZXJ2aWNlQ29uZmlnLlJlYWQuQWxsIEZpbGVzLlJlYWRXcml0ZS5BbGwgR3JvdXAuUmVhZFdyaXRlLkFsbCBJZGVudGl0eVJpc2tFdmVudC5SZWFkLkFsbCBNYWlsLlJlYWQgTWFpbC5SZWFkV3JpdGUgTWFpbGJveFNldHRpbmdzLlJlYWRXcml0ZSBOb3Rlcy5SZWFkV3JpdGUuQWxsIG9wZW5pZCBQZW9wbGUuUmVhZCBQbGFjZS5SZWFkIFByZXNlbmNlLlJlYWQgUHJlc2VuY2UuUmVhZC5BbGwgUHJpbnRlclNoYXJlLlJlYWRCYXNpYy5BbGwgUHJpbnRKb2IuQ3JlYXRlIFByaW50Sm9iLlJlYWRCYXNpYyBwcm9maWxlIFJlcG9ydHMuUmVhZC5BbGwgU2l0ZXMuUmVhZFdyaXRlLkFsbCBUYXNrcy5SZWFkV3JpdGUgVXNlci5SZWFkIFVzZXIuUmVhZEJhc2ljLkFsbCBVc2VyLlJlYWRXcml0ZSBVc2VyLlJlYWRXcml0ZS5BbGwgZW1haWwiLCJzaWduaW5fc3RhdGUiOlsia21zaSJdLCJzdWIiOiI0M284OXVTbVBhTElnNEwyTVZyX0dFVjlwR0xEdVlHQVh3X1dMd3RzSUZFIiwidGVuYW50X3JlZ2lvbl9zY29wZSI6IkVVIiwidGlkIjoiOWNlNzZkNDItNWVjYi00ZDhmLTkzOWItYTQ2MmFkMjhjZjM0IiwidW5pcXVlX25hbWUiOiJoZWxnZS5zY2hyb2VkZXJAdm9sdWUuY29tIiwidXBuIjoiaGVsZ2Uuc2Nocm9lZGVyQHZvbHVlLmNvbSIsInV0aSI6ImE0Rmdha2RyTGs2b3VvcWwweWNlQUEiLCJ2ZXIiOiIxLjAiLCJ3aWRzIjpbIjg4ZDhlM2UzLThmNTUtNGExZS05NTNhLTliOTg5OGI4ODc2YiIsImE5ZWE4OTk2LTEyMmYtNGM3NC05NTIwLThlZGNkMTkyODI2YyIsImI3OWZiZjRkLTNlZjktNDY4OS04MTQzLTc2YjE5NGU4NTUwOSJdLCJ4bXNfc3QiOnsic3ViIjoiS2RPWjl6NEZ6VTc5M1M5RVNZLVZCR01iTFg5TDJZeXM5Y3RDMzVWdGZhUSJ9LCJ4bXNfdGNkdCI6MTU4MzkyNTEyOX0.XcgHR_GCbde1ifKAPSbFsJisdtvJsjTKeiP24h8SuJnaLrEvwkbl2nskuLTkXNNqeQazeQmuJRI1hdLg2NV_VxIrloThYtqgDIiGGoIDAvYRVBq1Zny8I4JAGE1t5mB8_P7MeUy3QmODZG-0yhfBZqP-91fBrILxilAXhK_jfZC8U_RuOZRX9_wxyG_hPhjHtcro7J4_G8mnIjpYTDDYmGQQs-DE0XAXIAEloTTNcH1pb0EjY5TUe9xypo2ZZjqSLyVNWN29lxtpHmixpV3UN3cGWgU-XcyfTO3UQJkD-3WaVBNd9V-sg3z30CwnENuwfvz8UUapf4j_JsD1UkzMIQ"
+			}
+		},
+		"folder": {
+			"name": "Azure AD"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-06-24T12:33:01Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
