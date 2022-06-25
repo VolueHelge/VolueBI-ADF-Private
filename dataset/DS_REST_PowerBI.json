@@ -1,0 +1,26 @@
+{
+	"name": "DS_REST_PowerBI",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "PowerBIAPI",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"AdminAPI": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "Generic"
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@{concat('admin/',dataset().AdminAPI)}",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	}
+}
