@@ -1,0 +1,155 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-voluebi-prod"
+		},
+		"DW_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'DW'"
+		},
+		"GraphAPI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://graph.microsoft.com/v1.0/"
+		},
+		"GraphAPI_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"GraphAPI_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+		},
+		"GraphAPI_properties_typeProperties_aadResourceId": {
+			"type": "string",
+			"defaultValue": "https://graph.microsoft.com"
+		},
+		"Office365_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"PowerBIAPI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://api.powerbi.com/v1.0/myorg/"
+		},
+		"PowerBIAPI_properties_typeProperties_aadResourceId": {
+			"type": "string",
+			"defaultValue": "https://analysis.windows.net/powerbi/api"
+		},
+		"StorageVolueBI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://storagevoluebiprod.dfs.core.windows.net/"
+		},
+		"VolueBIKeyvault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/"
+		},
+		"ep-adftodw_properties_privateLinkResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/23d8ed9d-8cc6-4a39-a99b-109a5067ab06/resourceGroups/rg-voluebi-prod/providers/Microsoft.Sql/servers/sql-voluebi-prod"
+		},
+		"ep-adftodw_properties_groupId": {
+			"type": "string",
+			"defaultValue": "sqlServer"
+		},
+		"ep-adftodw_properties_fqdns": {
+			"type": "array",
+			"defaultValue": [
+				"sql-voluebi-prod.database.windows.net"
+			]
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "adf-voluebi-prod_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"DW_connectionString": {
+						"value": "[parameters('DW_connectionString')]"
+					},
+					"PowerBIAPI_properties_typeProperties_url": {
+						"value": "[parameters('PowerBIAPI_properties_typeProperties_url')]"
+					},
+					"PowerBIAPI_properties_typeProperties_aadResourceId": {
+						"value": "[parameters('PowerBIAPI_properties_typeProperties_aadResourceId')]"
+					},
+					"StorageVolueBI_properties_typeProperties_url": {
+						"value": "[parameters('StorageVolueBI_properties_typeProperties_url')]"
+					},
+					"VolueBIKeyvault_properties_typeProperties_baseUrl": {
+						"value": "[parameters('VolueBIKeyvault_properties_typeProperties_baseUrl')]"
+					},
+					"GraphAPI_properties_typeProperties_url": {
+						"value": "[parameters('GraphAPI_properties_typeProperties_url')]"
+					},
+					"GraphAPI_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('GraphAPI_properties_typeProperties_servicePrincipalId')]"
+					},
+					"GraphAPI_properties_typeProperties_tenant": {
+						"value": "[parameters('GraphAPI_properties_typeProperties_tenant')]"
+					},
+					"GraphAPI_properties_typeProperties_aadResourceId": {
+						"value": "[parameters('GraphAPI_properties_typeProperties_aadResourceId')]"
+					},
+					"Office365_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('Office365_properties_typeProperties_servicePrincipalId')]"
+					},
+					"ep-adftodw_properties_privateLinkResourceId": {
+						"value": "[parameters('ep-adftodw_properties_privateLinkResourceId')]"
+					},
+					"ep-adftodw_properties_groupId": {
+						"value": "[parameters('ep-adftodw_properties_groupId')]"
+					},
+					"ep-adftodw_properties_fqdns": {
+						"value": "[parameters('ep-adftodw_properties_fqdns')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "adf-voluebi-prod_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'adf-voluebi-prod_ArmTemplate_0')]"
+			]
+		}
+	]
+}

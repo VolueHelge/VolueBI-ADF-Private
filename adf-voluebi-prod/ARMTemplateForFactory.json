@@ -1,0 +1,1515 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-voluebi-prod"
+		},
+		"DW_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'DW'"
+		},
+		"GraphAPI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://graph.microsoft.com/v1.0/"
+		},
+		"GraphAPI_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"GraphAPI_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+		},
+		"GraphAPI_properties_typeProperties_aadResourceId": {
+			"type": "string",
+			"defaultValue": "https://graph.microsoft.com"
+		},
+		"Office365_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"PowerBIAPI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://api.powerbi.com/v1.0/myorg/"
+		},
+		"PowerBIAPI_properties_typeProperties_aadResourceId": {
+			"type": "string",
+			"defaultValue": "https://analysis.windows.net/powerbi/api"
+		},
+		"StorageVolueBI_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://storagevoluebiprod.dfs.core.windows.net/"
+		},
+		"VolueBIKeyvault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/"
+		},
+		"ep-adftodw_properties_privateLinkResourceId": {
+			"type": "string",
+			"defaultValue": "/subscriptions/23d8ed9d-8cc6-4a39-a99b-109a5067ab06/resourceGroups/rg-voluebi-prod/providers/Microsoft.Sql/servers/sql-voluebi-prod"
+		},
+		"ep-adftodw_properties_groupId": {
+			"type": "string",
+			"defaultValue": "sqlServer"
+		},
+		"ep-adftodw_properties_fqdns": {
+			"type": "array",
+			"defaultValue": [
+				"sql-voluebi-prod.database.windows.net"
+			]
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/CopyWithLogin')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "GetDWAutomationClientSecret",
+						"type": "WebActivity",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"url": {
+								"value": "@concat(\npipeline().globalParameters.KeyvaultURL,\n'AutomationClientSecret',\npipeline().globalParameters.KeyVaultAPIVersion)",
+								"type": "Expression"
+							},
+							"method": "GET",
+							"headers": {},
+							"authentication": {
+								"type": "MSI",
+								"resource": "https://vault.azure.net"
+							}
+						}
+					},
+					{
+						"name": "Login",
+						"type": "WebActivity",
+						"dependsOn": [
+							{
+								"activity": "GetDWAutomationClientSecret",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.00:05:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"url": {
+								"value": "@concat(\n'https://login.microsoftonline.com/'\n,pipeline().globalParameters.VolueTenantId\n,'/oauth2/v2.0/token')",
+								"type": "Expression"
+							},
+							"method": "POST",
+							"headers": {
+								"Content-Type": "application/x-www-form-urlencoded"
+							},
+							"body": {
+								"value": "@concat(\n'client_id=',\npipeline().globalParameters.AutomationClientId,\n'&grant_type=client_credentials',\n'&scope=https://graph.microsoft.com/.default',\n'&client_secret=',\nactivity('GetDWAutomationClientSecret').output.value)",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "CopyData",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Login",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "RestSource",
+								"httpRequestTimeout": "00:01:40",
+								"requestInterval": "00.00:00:00.010",
+								"requestMethod": "GET",
+								"additionalHeaders": {
+									"Authorization": {
+										"value": "@{if(\n    empty(string(pipeline().parameters.Token)),\n    concat('Bearer ',string(activity('Login').output.access_token)),\n    concat('Bearer ', pipeline().parameters.Token\n    )\n)}",
+										"type": "Expression"
+									},
+									"ConsistencyLevel": "eventual"
+								},
+								"paginationRules": {
+									"AbsoluteUrl": "$['@odata.nextLink']"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DynamicMicrosoftGraphREST",
+								"type": "DatasetReference",
+								"parameters": {
+									"path": "users/"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "StorageCsv",
+								"type": "DatasetReference",
+								"parameters": {
+									"filename": "test.csv"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"Token": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Azure AD"
+				},
+				"annotations": [
+					"Graph"
+				],
+				"lastPublishTime": "2022-06-24T12:33:01Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DynamicMicrosoftGraphREST')]",
+				"[concat(variables('factoryId'), '/datasets/StorageCsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_PowerBIWorkspaceInfo')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Extract Power BI tenant metadata\n\nCreated by: Just Blindbæk",
+				"activities": [
+					{
+						"name": "Save list of workspaces",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.01:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "RestSource",
+								"additionalColumns": [
+									{
+										"name": "ADF_PipelineRunID",
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "ADF_PipelineTriggerTime",
+										"value": {
+											"value": "@pipeline().TriggerTime",
+											"type": "Expression"
+										}
+									}
+								],
+								"httpRequestTimeout": "00:01:40",
+								"requestInterval": "00.00:00:00.010",
+								"requestMethod": "GET",
+								"paginationRules": {
+									"supportRFC5988": "true"
+								}
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"tableOption": "autoCreate"
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DynamicPowerBIAdminAPI",
+								"type": "DatasetReference",
+								"parameters": {
+									"path": "groups/"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ASQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"SchemaName": "stgpowerbi",
+									"TableName": "ModifiedWorkspaces",
+									"DatabaseName": {
+										"value": "DWH",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Get batches of workspaces",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Save list of workspaces",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.01:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "WITH [WorkspaceRanked]\nAS\n(\n    SELECT ROW_NUMBER() OVER (PARTITION BY [ADF_PipelineRunID] ORDER BY [Id]) AS [Rank]\n    ,[Id]\n    ,[ADF_PipelineRunID]\n    FROM [stgpowerbi].[ModifiedWorkspaces]\n),\n[WorkspaceBatched]\nAS\n(\n    SELECT ROW_NUMBER() OVER (PARTITION BY([Rank] % 100), [ADF_PipelineRunID] ORDER BY [Rank] ASC) AS [Batch]\n    ,[Id]\n    ,[ADF_PipelineRunID]\n    FROM [WorkspaceRanked]\n)\nSELECT N'{\"workspaces\": [\"' + STRING_AGG([Id], '\", \"') + '\"]}' AS [BodyExpression], [Batch]\nFROM [WorkspaceBatched]\nWHERE ADF_PipelineRunID = '@{pipeline().RunId}'\nGROUP BY [Batch]",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_ASQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"SchemaName": "stgpowerbi",
+									"TableName": "ModifiedWorkspaces",
+									"DatabaseName": {
+										"value": "DWH",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach batch",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get batches of workspaces",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get batches of workspaces').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Execute ScanResult pipeline",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_PowerBIWorkspaceInfoScanResult_ADLS",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"Batch": {
+												"value": "@item().Batch",
+												"type": "Expression"
+											},
+											"ADF_PipelineRunId": {
+												"value": "@pipeline().RunId",
+												"type": "Expression"
+											},
+											"ADF_TriggerTime": {
+												"value": "@pipeline().TriggerTime",
+												"type": "Expression"
+											},
+											"BodyExpression": {
+												"value": "@item().BodyExpression",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"variables": {
+					"WorkspaceBatches": {
+						"type": "Array"
+					}
+				},
+				"folder": {
+					"name": "Power BI monitor"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-02-26T12:04:07Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DynamicPowerBIAdminAPI')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ASQL_Generic')]",
+				"[concat(variables('factoryId'), '/pipelines/PL_PowerBIWorkspaceInfoScanResult_ADLS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_PowerBIWorkspaceInfoScanResult_ADLS')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy workspaceInfo data to ADLS",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Until ScanStatus equals Succeeded",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.01:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "RestSource",
+								"additionalColumns": [
+									{
+										"name": "ADF_PipelineRunId",
+										"value": {
+											"value": "@pipeline().parameters.ADF_PipelineRunId",
+											"type": "Expression"
+										}
+									},
+									{
+										"name": "ADF_PipelineTriggerTime",
+										"value": {
+											"value": "@pipeline().parameters.ADF_TriggerTime",
+											"type": "Expression"
+										}
+									}
+								],
+								"httpRequestTimeout": "00:01:40",
+								"requestInterval": "00.00:00:00.010",
+								"requestMethod": "GET"
+							},
+							"sink": {
+								"type": "JsonSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "JsonWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"path": "[['id']"
+										},
+										"sink": {
+											"name": "id",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['name']"
+										},
+										"sink": {
+											"name": "name",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['type']"
+										},
+										"sink": {
+											"name": "type",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['state']"
+										},
+										"sink": {
+											"name": "state",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['isOnDedicatedCapacity']"
+										},
+										"sink": {
+											"name": "isOnDedicatedCapacity",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['capacityId']"
+										},
+										"sink": {
+											"name": "capacityId",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['reports']"
+										},
+										"sink": {
+											"name": "reports",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['dashboards']"
+										},
+										"sink": {
+											"name": "dashboards",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['datasets']"
+										},
+										"sink": {
+											"name": "datasets",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "[['dataflows']"
+										},
+										"sink": {
+											"name": "dataflows",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "$['ADF_PipelineRunId']"
+										},
+										"sink": {
+											"name": "ADF_PipelineRunId",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"path": "$['ADF_PipelineTriggerTime']"
+										},
+										"sink": {
+											"name": "ADF_PipelineTriggerTime",
+											"type": "DateTime"
+										}
+									}
+								],
+								"collectionReference": "$['workspaces']"
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_REST_PowerBI",
+								"type": "DatasetReference",
+								"parameters": {
+									"AdminAPI": {
+										"value": "workspaces/scanResult/@{activity('Get ScanStatus').output.id}",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_Generic_JSON",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileSystem": "landing",
+									"Folder": {
+										"value": "powerbi-tenant/workspaceinfo/@{formatDateTime(pipeline().parameters.ADF_TriggerTime, 'yyyy')}/@{formatDateTime(pipeline().parameters.ADF_TriggerTime, 'MM')}",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "powerbi_workspaceinfo_batch_@{pipeline().parameters.Batch}_@{formatDateTime(pipeline().parameters.ADF_TriggerTime, 'yyyyMMdd')}.json",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Until ScanStatus equals Succeeded",
+						"description": "Wait until Scan Status API says data is ready",
+						"type": "Until",
+						"dependsOn": [
+							{
+								"activity": "Post WorkspaceInfo",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@equals('Succeeded',activity('Get ScanStatus').output.status)",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Wait 10 seconds",
+									"type": "Wait",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"waitTimeInSeconds": 10
+									}
+								},
+								{
+									"name": "Get ScanStatus",
+									"type": "WebActivity",
+									"dependsOn": [
+										{
+											"activity": "Wait 10 seconds",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.01:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"url": {
+											"value": "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/@{activity('Post WorkspaceInfo').output.id}",
+											"type": "Expression"
+										},
+										"method": "GET",
+										"headers": {},
+										"body": {
+											"workspaces": [
+												"f2e40aba-27dd-4bea-8dcf-85bfdd6d03e4",
+												"52f0c738-c28d-4ac3-92ee-9766865a205b"
+											]
+										},
+										"authentication": {
+											"type": "MSI",
+											"resource": "https://analysis.windows.net/powerbi/api"
+										}
+									}
+								}
+							],
+							"timeout": "0.01:00:00"
+						}
+					},
+					{
+						"name": "Post WorkspaceInfo",
+						"type": "WebActivity",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.01:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"url": "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo?lineage=True&datasourceDetails=True",
+							"method": "POST",
+							"headers": {},
+							"body": {
+								"value": "@pipeline().parameters.BodyExpression",
+								"type": "Expression"
+							},
+							"authentication": {
+								"type": "MSI",
+								"resource": "https://analysis.windows.net/powerbi/api"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"Batch": {
+						"type": "string"
+					},
+					"ADF_PipelineRunId": {
+						"type": "string"
+					},
+					"ADF_TriggerTime": {
+						"type": "string"
+					},
+					"BodyExpression": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Power BI monitor"
+				},
+				"annotations": [],
+				"lastPublishTime": "2021-02-19T19:48:50Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_REST_PowerBI')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Generic_JSON')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PowerBITest')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEachDay",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@range(1,pipeline().parameters.DaysToExtract)",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Copy Activity Events",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "RestSource",
+											"httpRequestTimeout": "00:01:40",
+											"requestInterval": "00.00:00:00.010",
+											"requestMethod": "GET",
+											"paginationRules": {
+												"AbsoluteUrl": "$.continuationUri"
+											}
+										},
+										"sink": {
+											"type": "JsonSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "JsonWriteSettings",
+												"filePattern": "arrayOfObjects"
+											}
+										},
+										"enableStaging": false
+									},
+									"inputs": [
+										{
+											"referenceName": "DynamicPowerBIAdminAPI",
+											"type": "DatasetReference",
+											"parameters": {
+												"path": "activityevents?startDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T00:00:00.000Z'&endDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T23:59:59.999Z'"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "StorageJson",
+											"type": "DatasetReference",
+											"parameters": {
+												"FileName": "@{formatDateTime(getPastTime(item(), 'Day'), 'yyyyMMdd')}.json",
+												"Folder": "events"
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"DaysToExtract": {
+						"type": "int",
+						"defaultValue": 1
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-06-24T14:36:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DynamicPowerBIAdminAPI')]",
+				"[concat(variables('factoryId'), '/datasets/StorageJson')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PowerBITest_copy1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEachDay",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@range(1,pipeline().parameters.DaysToExtract)",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Copy Activity Events",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "RestSource",
+											"httpRequestTimeout": "00:01:40",
+											"requestInterval": "00.00:00:00.010",
+											"requestMethod": "GET",
+											"paginationRules": {
+												"AbsoluteUrl": "$.continuationUri"
+											}
+										},
+										"sink": {
+											"type": "AzureSqlSink",
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate",
+											"disableMetricsCollection": false
+										},
+										"enableStaging": false
+									},
+									"inputs": [
+										{
+											"referenceName": "DynamicPowerBIAdminAPI",
+											"type": "DatasetReference",
+											"parameters": {
+												"path": "activityevents?startDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T00:00:00.000Z'&endDateTime='@{formatDateTime(getPastTime(int(item()), 'Day'), 'yyyy-MM-dd')}T23:59:59.999Z'"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DWtable",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"DaysToExtract": {
+						"type": "int",
+						"defaultValue": 1
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-06-24T14:36:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DynamicPowerBIAdminAPI')]",
+				"[concat(variables('factoryId'), '/datasets/DWtable')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/TestCopyGraph')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "CopyData",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "RestSource",
+								"httpRequestTimeout": "00:01:40",
+								"requestInterval": "00.00:00:00.010",
+								"requestMethod": "GET",
+								"additionalHeaders": {
+									"Authorization": {
+										"value": "@{concat(\n    'Bearer ',\n    pipeline().parameters.Token\n)}",
+										"type": "Expression"
+									},
+									"ConsistencyLevel": "eventual"
+								},
+								"paginationRules": {
+									"AbsoluteUrl": "$['@odata.nextLink']"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DynamicMicrosoftGraphREST",
+								"type": "DatasetReference",
+								"parameters": {
+									"path": "users/"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "StorageCsv",
+								"type": "DatasetReference",
+								"parameters": {
+									"filename": "test.csv"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"Token": {
+						"type": "string",
+						"defaultValue": "eyJ0eXAiOiJKV1QiLCJub25jZSI6IjJuSmxianpKSXRvNDlEX3V3dzhoa0ZuUFhlZUoyWTdudVppVVJmY3NQWU0iLCJhbGciOiJSUzI1NiIsIng1dCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGxWMFRPSSIsImtpZCI6IjJaUXBKM1VwYmpBWVhZR2FYRUpsOGxWMFRPSSJ9.eyJhdWQiOiIwMDAwMDAwMy0wMDAwLTAwMDAtYzAwMC0wMDAwMDAwMDAwMDAiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC85Y2U3NmQ0Mi01ZWNiLTRkOGYtOTM5Yi1hNDYyYWQyOGNmMzQvIiwiaWF0IjoxNjU2MDY4NDA5LCJuYmYiOjE2NTYwNjg0MDksImV4cCI6MTY1NjA3Mjc3OCwiYWNjdCI6MCwiYWNyIjoiMSIsImFpbyI6IkFWUUFxLzhUQUFBQUQ2eXd6Z0RMVFFqRnozRXlsQ0RoNmRPRlJwYlA0WnZNc0FnMTNGS3dWOHRlUUYyNHE1anY3NnJhZXlTWXo0c1AraGtUYzBFVkw2anBJVXJOZzFpMm1VbUZzdDY5NUJ3eGZnU08zcks4ZWlFPSIsImFtciI6WyJwd2QiLCJtZmEiXSwiYXBwX2Rpc3BsYXluYW1lIjoiR3JhcGggRXhwbG9yZXIiLCJhcHBpZCI6ImRlOGJjOGI1LWQ5ZjktNDhiMS1hOGFkLWI3NDhkYTcyNTA2NCIsImFwcGlkYWNyIjoiMCIsImZhbWlseV9uYW1lIjoiU2Nocm9lZGVyIiwiZ2l2ZW5fbmFtZSI6IkhlbGdlIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiODQuNTIuMTk5LjEwOCIsIm5hbWUiOiJIZWxnZSBTY2hyb2VkZXIiLCJvaWQiOiJkY2NlMjU3Zi01MzBjLTRjZmItOWQ2MC0xMzliMjk5MTUyNGIiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMzk0MDU4OTc1OC05MzMxMzU3OC0zMTY5MzE0MjQ1LTc4MzYiLCJwbGF0ZiI6IjMiLCJwdWlkIjoiMTAwMzIwMDFGOTdBNDZEQSIsInJoIjoiMC5BVGtBUW0zbm5NdGVqMDJUbTZSaXJTalBOQU1BQUFBQUFBQUF3QUFBQUFBQUFBQTVBRmMuIiwic2NwIjoiQ2FsZW5kYXJzLlJlYWRXcml0ZSBDaGF0LlJlYWQgQ2hhdC5SZWFkQmFzaWMgQ29udGFjdHMuUmVhZFdyaXRlIERldmljZU1hbmFnZW1lbnRSQkFDLlJlYWQuQWxsIERldmljZU1hbmFnZW1lbnRTZXJ2aWNlQ29uZmlnLlJlYWQuQWxsIEZpbGVzLlJlYWRXcml0ZS5BbGwgR3JvdXAuUmVhZFdyaXRlLkFsbCBJZGVudGl0eVJpc2tFdmVudC5SZWFkLkFsbCBNYWlsLlJlYWQgTWFpbC5SZWFkV3JpdGUgTWFpbGJveFNldHRpbmdzLlJlYWRXcml0ZSBOb3Rlcy5SZWFkV3JpdGUuQWxsIG9wZW5pZCBQZW9wbGUuUmVhZCBQbGFjZS5SZWFkIFByZXNlbmNlLlJlYWQgUHJlc2VuY2UuUmVhZC5BbGwgUHJpbnRlclNoYXJlLlJlYWRCYXNpYy5BbGwgUHJpbnRKb2IuQ3JlYXRlIFByaW50Sm9iLlJlYWRCYXNpYyBwcm9maWxlIFJlcG9ydHMuUmVhZC5BbGwgU2l0ZXMuUmVhZFdyaXRlLkFsbCBUYXNrcy5SZWFkV3JpdGUgVXNlci5SZWFkIFVzZXIuUmVhZEJhc2ljLkFsbCBVc2VyLlJlYWRXcml0ZSBVc2VyLlJlYWRXcml0ZS5BbGwgZW1haWwiLCJzaWduaW5fc3RhdGUiOlsia21zaSJdLCJzdWIiOiI0M284OXVTbVBhTElnNEwyTVZyX0dFVjlwR0xEdVlHQVh3X1dMd3RzSUZFIiwidGVuYW50X3JlZ2lvbl9zY29wZSI6IkVVIiwidGlkIjoiOWNlNzZkNDItNWVjYi00ZDhmLTkzOWItYTQ2MmFkMjhjZjM0IiwidW5pcXVlX25hbWUiOiJoZWxnZS5zY2hyb2VkZXJAdm9sdWUuY29tIiwidXBuIjoiaGVsZ2Uuc2Nocm9lZGVyQHZvbHVlLmNvbSIsInV0aSI6ImE0Rmdha2RyTGs2b3VvcWwweWNlQUEiLCJ2ZXIiOiIxLjAiLCJ3aWRzIjpbIjg4ZDhlM2UzLThmNTUtNGExZS05NTNhLTliOTg5OGI4ODc2YiIsImE5ZWE4OTk2LTEyMmYtNGM3NC05NTIwLThlZGNkMTkyODI2YyIsImI3OWZiZjRkLTNlZjktNDY4OS04MTQzLTc2YjE5NGU4NTUwOSJdLCJ4bXNfc3QiOnsic3ViIjoiS2RPWjl6NEZ6VTc5M1M5RVNZLVZCR01iTFg5TDJZeXM5Y3RDMzVWdGZhUSJ9LCJ4bXNfdGNkdCI6MTU4MzkyNTEyOX0.XcgHR_GCbde1ifKAPSbFsJisdtvJsjTKeiP24h8SuJnaLrEvwkbl2nskuLTkXNNqeQazeQmuJRI1hdLg2NV_VxIrloThYtqgDIiGGoIDAvYRVBq1Zny8I4JAGE1t5mB8_P7MeUy3QmODZG-0yhfBZqP-91fBrILxilAXhK_jfZC8U_RuOZRX9_wxyG_hPhjHtcro7J4_G8mnIjpYTDDYmGQQs-DE0XAXIAEloTTNcH1pb0EjY5TUe9xypo2ZZjqSLyVNWN29lxtpHmixpV3UN3cGWgU-XcyfTO3UQJkD-3WaVBNd9V-sg3z30CwnENuwfvz8UUapf4j_JsD1UkzMIQ"
+					}
+				},
+				"folder": {
+					"name": "Azure AD"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-06-24T12:33:01Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DynamicMicrosoftGraphREST')]",
+				"[concat(variables('factoryId'), '/datasets/StorageCsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Generic_JSON')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "StorageVolueBI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileSystem": {
+						"type": "String"
+					},
+					"Folder": {
+						"type": "String"
+					},
+					"FileName": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Folder",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FileSystem",
+							"type": "Expression"
+						}
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/StorageVolueBI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ASQL_Generic')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DW",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "String"
+					},
+					"TableName": {
+						"type": "String"
+					},
+					"DatabaseName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DW')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_REST_PowerBI')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PowerBIAPI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"AdminAPI": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Generic"
+				},
+				"annotations": [],
+				"type": "RestResource",
+				"typeProperties": {
+					"relativeUrl": {
+						"value": "@{concat('admin/',dataset().AdminAPI)}",
+						"type": "Expression"
+					}
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PowerBIAPI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DWtable')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DW",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "table"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DW')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DynamicMicrosoftGraphREST')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "GraphAPI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"path": {
+						"type": "string",
+						"defaultValue": "users/"
+					}
+				},
+				"annotations": [],
+				"type": "RestResource",
+				"typeProperties": {
+					"relativeUrl": {
+						"value": "@dataset().path",
+						"type": "Expression"
+					}
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/GraphAPI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DynamicPowerBIAPI')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PowerBIAPI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"path": {
+						"type": "string",
+						"defaultValue": "groups/"
+					}
+				},
+				"annotations": [],
+				"type": "RestResource",
+				"typeProperties": {
+					"relativeUrl": {
+						"value": "@{dataset().path}",
+						"type": "Expression"
+					}
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PowerBIAPI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DynamicPowerBIAdminAPI')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PowerBIAPI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"path": {
+						"type": "string",
+						"defaultValue": "groups/"
+					}
+				},
+				"annotations": [],
+				"type": "RestResource",
+				"typeProperties": {
+					"relativeUrl": {
+						"value": "@{concat(\n    'admin/',\n    dataset().path\n)}",
+						"type": "Expression"
+					}
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PowerBIAPI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/StorageCsv')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "StorageVolueBI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filename": {
+						"type": "string",
+						"defaultValue": "test.csv"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"folderPath": "csv",
+						"fileSystem": "test"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/StorageVolueBI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/StorageJson')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "StorageVolueBI",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					},
+					"Folder": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().Folder\n\n",
+							"type": "Expression"
+						},
+						"fileSystem": "test"
+					}
+				},
+				"schema": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/StorageVolueBI')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DW')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('DW_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "VolueBIVnet",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/integrationRuntimes/VolueBIVnet')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/GraphAPI')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "RestService",
+				"typeProperties": {
+					"url": "[parameters('GraphAPI_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "AadServicePrincipal",
+					"servicePrincipalId": "[parameters('GraphAPI_properties_typeProperties_servicePrincipalId')]",
+					"servicePrincipalKey": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "VolueBIKeyvault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "AutomationClientSecret"
+					},
+					"tenant": "[parameters('GraphAPI_properties_typeProperties_tenant')]",
+					"aadResourceId": "[parameters('GraphAPI_properties_typeProperties_aadResourceId')]",
+					"azureCloudType": "AzurePublic"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/VolueBIKeyvault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Office365')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "Office365",
+				"typeProperties": {
+					"office365TenantId": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34",
+					"servicePrincipalTenantId": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34",
+					"servicePrincipalId": "[parameters('Office365_properties_typeProperties_servicePrincipalId')]",
+					"servicePrincipalKey": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "VolueBIKeyvault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "AutomationClientSecret"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/VolueBIKeyvault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PowerBIAPI')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "RestService",
+				"typeProperties": {
+					"url": "[parameters('PowerBIAPI_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "ManagedServiceIdentity",
+					"aadResourceId": "[parameters('PowerBIAPI_properties_typeProperties_aadResourceId')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/StorageVolueBI')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('StorageVolueBI_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/VolueBIKeyvault')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('VolueBIKeyvault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/VolueBIVnet')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "North Europe",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 10,
+							"cleanup": false
+						},
+						"copyComputeScaleProperties": {
+							"dataIntegrationUnit": 4,
+							"timeToLive": 5
+						},
+						"pipelineExternalComputeScaleProperties": {
+							"timeToLive": 60
+						}
+					}
+				},
+				"managedVirtualNetwork": {
+					"type": "ManagedVirtualNetworkReference",
+					"referenceName": "default"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/VoluePowerBiAutomation')]",
+			"type": "Microsoft.DataFactory/factories/credentials",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "ServicePrincipal",
+				"typeProperties": {
+					"tenant": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34",
+					"servicePrincipalId": "231e2adf-b50a-4e74-a093-e54c5f549efd",
+					"servicePrincipalKey": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "VolueBIKeyvault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "AutomationClientSecret"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/VolueBIKeyvault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/default')]",
+			"type": "Microsoft.DataFactory/factories/managedVirtualNetworks",
+			"apiVersion": "2018-06-01",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/default/ep-adftodw')]",
+			"type": "Microsoft.DataFactory/factories/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"privateLinkResourceId": "[parameters('ep-adftodw_properties_privateLinkResourceId')]",
+				"groupId": "[parameters('ep-adftodw_properties_groupId')]",
+				"fqdns": "[parameters('ep-adftodw_properties_fqdns')]"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/managedVirtualNetworks/default')]"
+			]
+		}
+	]
+}

@@ -1,0 +1,50 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-voluebi-prod"
+		},
+		"DW_connectionString": {
+			"value": ""
+		},
+		"GraphAPI_properties_typeProperties_url": {
+			"value": "https://graph.microsoft.com/v1.0/"
+		},
+		"GraphAPI_properties_typeProperties_servicePrincipalId": {
+			"value": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"GraphAPI_properties_typeProperties_tenant": {
+			"value": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+		},
+		"GraphAPI_properties_typeProperties_aadResourceId": {
+			"value": "https://graph.microsoft.com"
+		},
+		"Office365_properties_typeProperties_servicePrincipalId": {
+			"value": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"PowerBIAPI_properties_typeProperties_url": {
+			"value": "https://api.powerbi.com/v1.0/myorg/"
+		},
+		"PowerBIAPI_properties_typeProperties_aadResourceId": {
+			"value": "https://analysis.windows.net/powerbi/api"
+		},
+		"StorageVolueBI_properties_typeProperties_url": {
+			"value": "https://storagevoluebiprod.dfs.core.windows.net/"
+		},
+		"VolueBIKeyvault_properties_typeProperties_baseUrl": {
+			"value": "https://keyv-voluebi-prod.vault.azure.net/"
+		},
+		"ep-adftodw_properties_privateLinkResourceId": {
+			"value": "/subscriptions/23d8ed9d-8cc6-4a39-a99b-109a5067ab06/resourceGroups/rg-voluebi-prod/providers/Microsoft.Sql/servers/sql-voluebi-prod"
+		},
+		"ep-adftodw_properties_groupId": {
+			"value": "sqlServer"
+		},
+		"ep-adftodw_properties_fqdns": {
+			"value": [
+				"sql-voluebi-prod.database.windows.net"
+			]
+		}
+	}
+}

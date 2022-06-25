@@ -1,0 +1,18 @@
+{
+	"VolueTenantId": {
+		"type": "string",
+		"value": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+	},
+	"AutomationClientId": {
+		"type": "string",
+		"value": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+	},
+	"KeyvaultURL": {
+		"type": "string",
+		"value": "https://keyv-voluebi-prod.vault.azure.net/secrets/"
+	},
+	"KeyVaultAPIVersion": {
+		"type": "string",
+		"value": "?api-version=7.3"
+	}
+}
