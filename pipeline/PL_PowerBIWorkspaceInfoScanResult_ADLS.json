@@ -312,6 +312,7 @@
 			"name": "Power BI monitor"
 		},
 		"annotations": [],
-		"lastPublishTime": "2021-02-19T19:48:50Z"
-	}
+		"lastPublishTime": "2022-06-25T18:55:58Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
 }
