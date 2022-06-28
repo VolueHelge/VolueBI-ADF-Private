@@ -11,6 +11,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'DW'"
 		},
+		"VolueGitHub_credential": {
+			"type": "secureString",
+			"metadata": "Secure string for 'credential' of 'VolueGitHub'"
+		},
 		"GraphAPI_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://graph.microsoft.com/v1.0/"
@@ -47,6 +51,10 @@
 			"type": "string",
 			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/"
 		},
+		"VolueGitHub_properties_typeProperties_username": {
+			"type": "string",
+			"defaultValue": "VolueHelge"
+		},
 		"ep-adftodw_properties_privateLinkResourceId": {
 			"type": "string",
 			"defaultValue": "/subscriptions/23d8ed9d-8cc6-4a39-a99b-109a5067ab06/resourceGroups/rg-voluebi-prod/providers/Microsoft.Sql/servers/sql-voluebi-prod"
@@ -60,6 +68,22 @@
 			"defaultValue": [
 				"sql-voluebi-prod.database.windows.net"
 			]
+		},
+		"default_properties_VolueTenantId_value": {
+			"type": "string",
+			"defaultValue": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+		},
+		"default_properties_AutomationClientId_value": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"default_properties_KeyvaultURL_value": {
+			"type": "string",
+			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/secrets/"
+		},
+		"default_properties_KeyVaultAPIVersion_value": {
+			"type": "string",
+			"defaultValue": "?api-version=7.3"
 		},
 		"containerUri": {
 			"type": "string",
@@ -88,8 +112,20 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
-					"DW_connectionString": {
-						"value": "[parameters('DW_connectionString')]"
+					"VolueGitHub_credential": {
+						"value": "[parameters('VolueGitHub_credential')]"
+					},
+					"default_properties_VolueTenantId_value": {
+						"value": "[parameters('default_properties_VolueTenantId_value')]"
+					},
+					"default_properties_AutomationClientId_value": {
+						"value": "[parameters('default_properties_AutomationClientId_value')]"
+					},
+					"default_properties_KeyvaultURL_value": {
+						"value": "[parameters('default_properties_KeyvaultURL_value')]"
+					},
+					"default_properties_KeyVaultAPIVersion_value": {
+						"value": "[parameters('default_properties_KeyVaultAPIVersion_value')]"
 					},
 					"PowerBIAPI_properties_typeProperties_url": {
 						"value": "[parameters('PowerBIAPI_properties_typeProperties_url')]"
@@ -102,6 +138,9 @@
 					},
 					"VolueBIKeyvault_properties_typeProperties_baseUrl": {
 						"value": "[parameters('VolueBIKeyvault_properties_typeProperties_baseUrl')]"
+					},
+					"VolueGitHub_properties_typeProperties_username": {
+						"value": "[parameters('VolueGitHub_properties_typeProperties_username')]"
 					},
 					"GraphAPI_properties_typeProperties_url": {
 						"value": "[parameters('GraphAPI_properties_typeProperties_url')]"
@@ -144,6 +183,9 @@
 				"parameters": {
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
+					},
+					"DW_connectionString": {
+						"value": "[parameters('DW_connectionString')]"
 					}
 				}
 			},

@@ -7,9 +7,25 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "adf-voluebi-prod"
 		},
-		"DW_connectionString": {
+		"VolueGitHub_credential": {
 			"type": "secureString",
-			"metadata": "Secure string for 'connectionString' of 'DW'"
+			"metadata": "Secure string for 'credential' of 'VolueGitHub'"
+		},
+		"default_properties_VolueTenantId_value": {
+			"type": "string",
+			"defaultValue": "9ce76d42-5ecb-4d8f-939b-a462ad28cf34"
+		},
+		"default_properties_AutomationClientId_value": {
+			"type": "string",
+			"defaultValue": "231e2adf-b50a-4e74-a093-e54c5f549efd"
+		},
+		"default_properties_KeyvaultURL_value": {
+			"type": "string",
+			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/secrets/"
+		},
+		"default_properties_KeyVaultAPIVersion_value": {
+			"type": "string",
+			"defaultValue": "?api-version=7.3"
 		},
 		"PowerBIAPI_properties_typeProperties_url": {
 			"type": "string",
@@ -26,6 +42,10 @@
 		"VolueBIKeyvault_properties_typeProperties_baseUrl": {
 			"type": "string",
 			"defaultValue": "https://keyv-voluebi-prod.vault.azure.net/"
+		},
+		"VolueGitHub_properties_typeProperties_username": {
+			"type": "string",
+			"defaultValue": "VolueHelge"
 		},
 		"GraphAPI_properties_typeProperties_url": {
 			"type": "string",
@@ -67,6 +87,30 @@
 	},
 	"resources": [
 		{
+			"name": "[concat(parameters('factoryName'), '/default')]",
+			"type": "Microsoft.DataFactory/factories/globalparameters",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"VolueTenantId": {
+					"type": "string",
+					"value": "[parameters('default_properties_VolueTenantId_value')]"
+				},
+				"AutomationClientId": {
+					"type": "string",
+					"value": "[parameters('default_properties_AutomationClientId_value')]"
+				},
+				"KeyvaultURL": {
+					"type": "string",
+					"value": "[parameters('default_properties_KeyvaultURL_value')]"
+				},
+				"KeyVaultAPIVersion": {
+					"type": "string",
+					"value": "[parameters('default_properties_KeyVaultAPIVersion_value')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/PowerBIAPI')]",
 			"type": "Microsoft.DataFactory/factories/linkedServices",
 			"apiVersion": "2018-06-01",
@@ -104,6 +148,24 @@
 				"type": "AzureKeyVault",
 				"typeProperties": {
 					"baseUrl": "[parameters('VolueBIKeyvault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/VolueGitHub')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "GitHub",
+				"typeProperties": {
+					"username": "[parameters('VolueGitHub_properties_typeProperties_username')]",
+					"credential": {
+						"type": "SecureString",
+						"value": "[parameters('VolueGitHub_credential')]"
+					},
+					"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQDUzQjdGQkE2LTYxMTAtNEZBOC1CRUQ0LTg3QTFBNTM1REVGOF9kZGZmOGIyMi03NzExLTQ3OTAtYjA4Mi1hNjBhOWQwYjc3ZGEiDQp9"
 				}
 			},
 			"dependsOn": []
@@ -773,7 +835,7 @@
 					"name": "Power BI monitor"
 				},
 				"annotations": [],
-				"lastPublishTime": "2021-02-19T19:48:50Z"
+				"lastPublishTime": "2022-06-25T18:55:58Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/DS_REST_PowerBI')]",
@@ -901,181 +963,6 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/GraphAPI')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/DW')]",
-			"type": "Microsoft.DataFactory/factories/linkedServices",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"annotations": [],
-				"type": "AzureSqlDatabase",
-				"typeProperties": {
-					"connectionString": "[parameters('DW_connectionString')]"
-				},
-				"connectVia": {
-					"referenceName": "VolueBIVnet",
-					"type": "IntegrationRuntimeReference"
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/integrationRuntimes/VolueBIVnet')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/CopyWithLogin')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "GetDWAutomationClientSecret",
-						"type": "WebActivity",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "7.00:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"url": {
-								"value": "@concat(\npipeline().globalParameters.KeyvaultURL,\n'AutomationClientSecret',\npipeline().globalParameters.KeyVaultAPIVersion)",
-								"type": "Expression"
-							},
-							"method": "GET",
-							"headers": {},
-							"authentication": {
-								"type": "MSI",
-								"resource": "https://vault.azure.net"
-							}
-						}
-					},
-					{
-						"name": "Login",
-						"type": "WebActivity",
-						"dependsOn": [
-							{
-								"activity": "GetDWAutomationClientSecret",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.00:05:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"url": {
-								"value": "@concat(\n'https://login.microsoftonline.com/'\n,pipeline().globalParameters.VolueTenantId\n,'/oauth2/v2.0/token')",
-								"type": "Expression"
-							},
-							"method": "POST",
-							"headers": {
-								"Content-Type": "application/x-www-form-urlencoded"
-							},
-							"body": {
-								"value": "@concat(\n'client_id=',\npipeline().globalParameters.AutomationClientId,\n'&grant_type=client_credentials',\n'&scope=https://graph.microsoft.com/.default',\n'&client_secret=',\nactivity('GetDWAutomationClientSecret').output.value)",
-								"type": "Expression"
-							}
-						}
-					},
-					{
-						"name": "CopyData",
-						"type": "Copy",
-						"dependsOn": [
-							{
-								"activity": "Login",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "7.00:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "RestSource",
-								"httpRequestTimeout": "00:01:40",
-								"requestInterval": "00.00:00:00.010",
-								"requestMethod": "GET",
-								"additionalHeaders": {
-									"Authorization": {
-										"value": "@{if(\n    empty(string(pipeline().parameters.Token)),\n    concat('Bearer ',string(activity('Login').output.access_token)),\n    concat('Bearer ', pipeline().parameters.Token\n    )\n)}",
-										"type": "Expression"
-									},
-									"ConsistencyLevel": "eventual"
-								},
-								"paginationRules": {
-									"AbsoluteUrl": "$['@odata.nextLink']"
-								}
-							},
-							"sink": {
-								"type": "DelimitedTextSink",
-								"storeSettings": {
-									"type": "AzureBlobFSWriteSettings"
-								},
-								"formatSettings": {
-									"type": "DelimitedTextWriteSettings",
-									"quoteAllText": true,
-									"fileExtension": ".txt"
-								}
-							},
-							"enableStaging": false
-						},
-						"inputs": [
-							{
-								"referenceName": "DynamicMicrosoftGraphREST",
-								"type": "DatasetReference",
-								"parameters": {
-									"path": "users/"
-								}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "StorageCsv",
-								"type": "DatasetReference",
-								"parameters": {
-									"filename": "test.csv"
-								}
-							}
-						]
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {},
-					"cancelAfter": {}
-				},
-				"parameters": {
-					"Token": {
-						"type": "string"
-					}
-				},
-				"folder": {
-					"name": "Azure AD"
-				},
-				"annotations": [
-					"Graph"
-				],
-				"lastPublishTime": "2022-06-24T12:33:01Z"
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/DynamicMicrosoftGraphREST')]",
-				"[concat(variables('factoryId'), '/datasets/StorageCsv')]"
 			]
 		}
 	]
